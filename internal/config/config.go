@@ -2,7 +2,7 @@ package config
 
 import (
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
+	"os"
 )
 
 type Scanner struct {
@@ -10,6 +10,7 @@ type Scanner struct {
 	PreCommand []string `yaml:"pre_command"`
 	Command    []string `yaml:"command"`
 	EnvVars    []string `yaml:"env"`
+	Disable    bool     `yaml:"disable"`
 }
 
 type Config struct {
@@ -17,7 +18,7 @@ type Config struct {
 }
 
 func Load(path string) (*Config, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -25,5 +26,13 @@ func Load(path string) (*Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, err
 	}
+	var active []Scanner
+	for _, sc := range cfg.Scanners {
+		if sc.Disable {
+			continue
+		}
+		active = append(active, sc)
+	}
+	cfg.Scanners = active
 	return &cfg, nil
 }

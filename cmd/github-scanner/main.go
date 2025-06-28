@@ -40,7 +40,7 @@ func main() {
 		log.Fatalf("listing repos: %v", err)
 	}
 
-	baseDir := filepath.Join("/tmp", "git-repos")
+	baseDir := filepath.Join("/tmp", "github-repos")
 	os.MkdirAll(baseDir, 0755)
 
 	fmt.Printf("found %d repositories\n", len(repos))

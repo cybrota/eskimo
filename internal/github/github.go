@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 
@@ -52,6 +53,18 @@ func (c *Client) CloneRepo(repo *github.Repository, baseDir string) (string, err
 	name := *repo.Name
 	repoURL := repo.GetCloneURL()
 	dest := filepath.Join(baseDir, name)
+
+	if _, err := os.Stat(dest); err == nil {
+		cmd := exec.Command("git", "-C", dest, "pull")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return "", fmt.Errorf("git pull failed: %v: %s", err, string(out))
+		}
+		return dest, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+
 	authURL := repoURL
 	if c.token != "" {
 		authURL = fmt.Sprintf("https://%s@%s", c.token, repoURL[len("https://"):len(repoURL)])

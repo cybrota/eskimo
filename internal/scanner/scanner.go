@@ -14,6 +14,7 @@ type Scanner struct {
 	PreCommand []string
 	Command    []string
 	EnvVars    []string
+	Disable    bool
 }
 
 func (s Scanner) Run(ctx context.Context, repoPath string) error {
