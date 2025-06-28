@@ -32,8 +32,10 @@ scanners:
   - name: semgrep
     command: ["semgrep", "ci", "--pro"]
     env: ["SEMGREP_PAT_TOKEN"]
+    disable: false
   - name: wiz
     pre_command: ["wizcli", "auth"]
     command: ["wizcli", "dir", "scan"]
     env: ["WIZ_CLIENT_ID", "WIZ_CLIENT_SECRET"]
+    disable: true
 ```

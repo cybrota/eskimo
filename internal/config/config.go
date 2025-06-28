@@ -10,6 +10,7 @@ type Scanner struct {
 	PreCommand []string `yaml:"pre_command"`
 	Command    []string `yaml:"command"`
 	EnvVars    []string `yaml:"env"`
+	Disable    bool     `yaml:"disable"`
 }
 
 type Config struct {
@@ -25,5 +26,13 @@ func Load(path string) (*Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, err
 	}
+	var active []Scanner
+	for _, sc := range cfg.Scanners {
+		if sc.Disable {
+			continue
+		}
+		active = append(active, sc)
+	}
+	cfg.Scanners = active
 	return &cfg, nil
 }
