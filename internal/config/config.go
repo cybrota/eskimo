@@ -2,7 +2,7 @@ package config
 
 import (
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
+	"os"
 )
 
 type Scanner struct {
@@ -18,7 +18,7 @@ type Config struct {
 }
 
 func Load(path string) (*Config, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

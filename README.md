@@ -39,3 +39,5 @@ scanners:
     env: ["WIZ_CLIENT_ID", "WIZ_CLIENT_SECRET"]
     disable: true
 ```
+
+Set `disable: true` to skip running a scanner. If the flag is omitted or set to `false`, the scanner will run.
