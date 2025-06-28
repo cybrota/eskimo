@@ -8,6 +8,9 @@ A pluggable security scanner written in Go. It fetches all repositories in a Git
 go run ./cmd/github-scanner -org my-org -config scanners.yaml
 ```
 
+Repositories are cloned under `/tmp/github-repos`. If a repository directory
+already exists, the latest changes will be pulled before running scanners.
+
 Environment variables required:
 
 - `GITHUB_TOKEN` – Personal access token with rights to read organization repositories
