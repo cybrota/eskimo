@@ -15,23 +15,9 @@
 </picture>
 
 A pluggable security scanner written in Go. It fetches all repositories in a GitHub organization and runs configured scanners against each repository.
-The scanners can be configured with commands to run, and their environment variables. Eskimo is useful for setting up weekly scans on cloud environments to generate a baseline scan for organization.
+The scanners can be configured with commands to run, and their environment variables. Eskimo is useful for setting up daily/weekly scans on cloud environments to generate a baseline scan for an organization.
 
-Eskimo is a BYOS (Bring Your Own Scanner) tool that performs security scans based on given configuration. Plug in or out your favorite scanners.
-
-## Usage
-
-```bash
-go run ./cmd/eskimo -org my-org -config scanners.yaml
-```
-
-Repositories are cloned under `/tmp/github-repos`. If a repository directory
-already exists, the latest changes will be pulled before running scanners.
-
-Environment variables required:
-
-- `GITHUB_TOKEN` – Personal access token with rights to read organization repositories
-- Scanner specific variables (see `scanners.yaml`)
+Think Eskimo as BYOS - Bring Your Own Scanners tool that performs security scans based on a given configuration.
 
 ## Docker
 
@@ -42,6 +28,22 @@ docker build -t eskimo .
 
 docker run -e GITHUB_TOKEN=xxxx -v $HOME/.config:/root/.config eskimo -org my-org
 ```
+
+## Usage
+
+```bash
+go build
+./eskimo -org my-org -config scanners.yaml
+```
+
+Repositories are cloned under `/tmp/github-repos`. If a repository directory
+already exists, the latest changes will be pulled before running scanners.
+
+Environment variables required:
+
+- `GITHUB_TOKEN` – Personal access token with rights to read organization repositories
+- Scanner specific variables (see `scanners.yaml`)
+
 
 ## Configuration
 
