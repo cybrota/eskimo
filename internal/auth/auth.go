@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -35,7 +36,7 @@ var (
 
 // DeviceFlow performs GitHub device authorization flow.
 // openBrowser is called with the verification URL to open for user login.
-func DeviceFlow(ctx context.Context, clientID, scope string, openBrowser func(string) error) (string, error) {
+func DeviceFlow(ctx context.Context, clientID, scope string, openBrowser func(string) error, out io.Writer) (string, error) {
 	values := url.Values{}
 	values.Set("client_id", clientID)
 	values.Set("scope", scope)
@@ -57,6 +58,13 @@ func DeviceFlow(ctx context.Context, clientID, scope string, openBrowser func(st
 	verURL := dc.VerificationURIComplete
 	if verURL == "" {
 		verURL = dc.VerificationURI
+	}
+	if out != nil {
+		fmt.Fprintf(out, "\nTo authorize Eskimo, visit:\n%s\n\nand enter the code: %s\n\n", verURL, dc.UserCode)
+		if openBrowser != nil {
+			fmt.Fprintln(out, "A browser window has been opened. If it didn't open, use the URL above.")
+		}
+		fmt.Fprintln(out, "Waiting for authorization...")
 	}
 	if openBrowser != nil {
 		openBrowser(verURL)

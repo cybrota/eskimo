@@ -37,6 +37,7 @@ go build
 
 # To obtain a token using GitHub's device flow run:
 eskimo auth --org my-org
+# The command prints a code and opens a browser for authorization
 ```
 
 Repositories are cloned under `/tmp/github-repos`. If a repository directory

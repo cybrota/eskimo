@@ -20,7 +20,7 @@ var authCmd = &cobra.Command{
 		if clientID == "" {
 			return fmt.Errorf("GITHUB_CLIENT_ID must be set")
 		}
-		token, err := auth.DeviceFlow(cmd.Context(), clientID, "repo", auth.DefaultBrowser)
+		token, err := auth.DeviceFlow(cmd.Context(), clientID, "repo", auth.DefaultBrowser, cmd.OutOrStdout())
 		if err != nil {
 			return err
 		}

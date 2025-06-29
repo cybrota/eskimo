@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"net/http"
@@ -45,9 +46,10 @@ func TestDeviceFlow(t *testing.T) {
 
 	opened := false
 	openFunc := func(url string) error { opened = true; return nil }
+	var buf bytes.Buffer
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	tok, err := DeviceFlow(ctx, "client", "repo", openFunc)
+	tok, err := DeviceFlow(ctx, "client", "repo", openFunc, &buf)
 	if err != nil {
 		t.Fatalf("flow failed: %v", err)
 	}
@@ -56,6 +58,10 @@ func TestDeviceFlow(t *testing.T) {
 	}
 	if !opened {
 		t.Fatalf("browser not opened")
+	}
+	out := buf.String()
+	if !strings.Contains(out, "enter the code: u") {
+		t.Fatalf("output missing code: %q", out)
 	}
 }
 
