@@ -3,15 +3,22 @@
 # Pass environment variables for scanner to pick from env: [] list
 
 scanners:
+  # Enterprise scanners
   - name: semgrep
     command: ["semgrep", "scan"]
     env: ["SEMGREP_PAT_TOKEN"]
-    disable: false
   - name: wiz
     pre_command: ["wizcli", "auth"]
     command: ["wizcli", "dir", "scan"]
     env: ["WIZ_CLIENT_ID", "WIZ_CLIENT_SECRET"]
     disable: true
+  - name: cycode
+    pre_command: ["cycode", "auth"]
+    command: ["cycode", "scan", "path", "."]
+    env: ["CYCODE_CLIENT_ID", "CYCODE_CLIENT_SECRET"]
+    disable: true
+
+  # OSS scanners
   - name: scharf
     command: ["scharf", "audit"]
     env: []

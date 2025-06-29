@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"eskimo/internal/auth"
+
 	"github.com/spf13/cobra"
 )
 
@@ -20,6 +21,7 @@ var authCmd = &cobra.Command{
 		if clientID == "" {
 			return fmt.Errorf("GITHUB_CLIENT_ID must be set")
 		}
+
 		token, err := auth.DeviceFlow(cmd.Context(), clientID, "repo", auth.DefaultBrowser, cmd.OutOrStdout())
 		if err != nil {
 			return err
@@ -28,7 +30,7 @@ var authCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "Token saved to %s\n", path)
+		fmt.Fprintf(cmd.OutOrStdout(), "Authorization is successful. Token saved to %s\n", path)
 		return nil
 	},
 }
