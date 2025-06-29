@@ -28,5 +28,7 @@ jobs:
 
       - name: Run tests
         run: |
+          git config --global user.email "narenarya@live.com"
+          git config --global user.name "N3N"
           go mod download
           go test ./...
