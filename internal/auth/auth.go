@@ -39,7 +39,13 @@ func DeviceFlow(ctx context.Context, clientID, scope string, openBrowser func(st
 	values := url.Values{}
 	values.Set("client_id", clientID)
 	values.Set("scope", scope)
-	resp, err := http.PostForm(deviceEndpoint, values)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, deviceEndpoint, strings.NewReader(values.Encode()))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -71,6 +77,7 @@ func DeviceFlow(ctx context.Context, clientID, scope string, openBrowser func(st
 				return "", err
 			}
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			req.Header.Set("Accept", "application/json")
 			r, err := http.DefaultClient.Do(req)
 			if err != nil {
 				return "", err

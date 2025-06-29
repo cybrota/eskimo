@@ -15,6 +15,9 @@ import (
 func TestDeviceFlow(t *testing.T) {
 	deviceCh := make(chan struct{}, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Accept") != "application/json" {
+			t.Errorf("Accept header not set")
+		}
 		switch r.URL.Path {
 		case "/login/device/code":
 			w.Header().Set("Content-Type", "application/json")
