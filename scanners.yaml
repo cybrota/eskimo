@@ -1,6 +1,10 @@
+# Welcome to scanner configuration file
+# Disable a given scanner with disable: true
+# Pass environment variables for scanner to pick from env: [] list
+
 scanners:
   - name: semgrep
-    command: ["semgrep", "ci", "--pro"]
+    command: ["semgrep", "scan"]
     env: ["SEMGREP_PAT_TOKEN"]
     disable: false
   - name: wiz
@@ -8,3 +12,9 @@ scanners:
     command: ["wizcli", "dir", "scan"]
     env: ["WIZ_CLIENT_ID", "WIZ_CLIENT_SECRET"]
     disable: true
+  - name: scharf
+    command: ["scharf", "audit"]
+    env: []
+  - name: trivy
+    command: ["trivy", "fs", "."]
+    env: []

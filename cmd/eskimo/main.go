@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github-scanner/internal/config"
-	internalgithub "github-scanner/internal/github"
-	"github-scanner/internal/scanner"
+	"eskimo/internal/config"
+	internalgithub "eskimo/internal/github"
+	"eskimo/internal/scanner"
 )
 
 func main() {
