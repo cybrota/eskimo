@@ -26,14 +26,17 @@ Build and run using Docker:
 ```bash
 docker build -t eskimo .
 
-docker run -e GITHUB_TOKEN=xxxx -v $HOME/.config:/root/.config eskimo -org my-org
+docker run -e GITHUB_TOKEN=xxxx -v $HOME/.config:/root/.config eskimo --org my-org
 ```
 
 ## Usage
 
 ```bash
 go build
-./eskimo -org my-org -config scanners.yaml
+./eskimo --org my-org --config scanners.yaml
+
+# To obtain a token using GitHub's device flow run:
+eskimo auth --org my-org
 ```
 
 Repositories are cloned under `/tmp/github-repos`. If a repository directory
