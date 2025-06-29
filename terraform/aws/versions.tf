@@ -10,7 +10,7 @@ terraform {
   backend "s3" {
     bucket         = "eskimo-tf-state"
     key            = "eksimo/terraform.tfstate"
-    region         = "us-east-1"
+    region         = "us-west-2"
     dynamodb_table = "eskimo-tf-lock"
   }
 }
