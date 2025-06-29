@@ -27,6 +27,9 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 ```
 7. **Branch Names**: Use '_type_/_short_topic_' convention for new branches (e.g. feat/add-s3-backup).
+
 8. **Architectural Decision Records (ADRs)**: For non-trivial design choices, add a short ADR (docs/adr/NNN-*.md) explaining context, the decision, and alternatives.
+
 9. **Style & Formatting**: Use opinionated formatters/lints (e.g. gofmt + goimports, golangci-lint) and run them.
-10. **Security**: Run go vet, govulncheck to make sure basic security issues are caught.
+
+10. **Security**: Run go vet, govulncheck to make sure code is free from basic security issues.
