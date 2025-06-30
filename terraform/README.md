@@ -1,7 +1,7 @@
 # Terraform
 
 This directory holds the infrastructure to run Eskimo in AWS environment. Once `bootstrap` and `aws` are created,
-one can trigger the scanner using AWS CLI:
+the scan schedule can be adjusted using the `scan_schedule_expression` variable, which holds the raw cron expression. One can also trigger the scanner manually using AWS CLI:
 
 ```sh
 aws events put-events \
