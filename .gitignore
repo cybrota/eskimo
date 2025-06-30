@@ -31,3 +31,5 @@ go.work.sum
 # .idea/
 # .vscode/
 eskimo
+terraform.tfstate
+.terraform
