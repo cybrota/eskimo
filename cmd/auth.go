@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"eskimo/internal/auth"
+	"github.com/cybrota/eskimo/internal/auth"
 
 	"github.com/spf13/cobra"
 )

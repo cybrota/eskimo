@@ -1,4 +1,4 @@
-module eskimo
+module github.com/cybrota/eskimo
 
 go 1.23.8
 
