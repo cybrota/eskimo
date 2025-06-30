@@ -25,10 +25,16 @@ jobs:
           aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 525500656121.dkr.ecr.us-west-2.amazonaws.com
 
       - name: Build image
-        run: docker build -t eskimo .
-
-      - name: Tag image
-        run: docker tag eskimo:latest 525500656121.dkr.ecr.us-west-2.amazonaws.com/eskimo:latest
+        run: |
+          IMAGE_URI=525500656121.dkr.ecr.us-west-2.amazonaws.com/eskimo
+          docker build -t $IMAGE_URI:${{ github.sha }} .
+          docker tag $IMAGE_URI:${{ github.sha }} $IMAGE_URI:latest
 
       - name: Push image
-        run: docker push 525500656121.dkr.ecr.us-west-2.amazonaws.com/eskimo:latest
+        id: push
+        run: |
+          IMAGE_URI=525500656121.dkr.ecr.us-west-2.amazonaws.com/eskimo
+          docker push $IMAGE_URI:${{ github.sha }}
+          docker push $IMAGE_URI:latest
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' $IMAGE_URI:${{ github.sha }})
+          echo "digest=${DIGEST##*@}" >> "$GITHUB_OUTPUT"
