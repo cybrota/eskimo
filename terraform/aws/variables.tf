@@ -32,3 +32,9 @@ variable "secret_values" {
   type        = map(string)
   default     = {}
 }
+
+variable "scan_schedule_expression" {
+  description = "Cron expression for scheduled scans"
+  type        = string
+  default     = "0 0 ? * MON *"
+}

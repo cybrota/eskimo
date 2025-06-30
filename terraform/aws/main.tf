@@ -206,7 +206,7 @@ resource "aws_security_group" "ecs_tasks" {
 # CloudWatch Event rule to trigger weekly
 resource "aws_cloudwatch_event_rule" "weekly" {
   name                = "eskimo-weekly"
-  schedule_expression = "cron(0 0 ? * MON *)"
+  schedule_expression = "cron(${var.scan_schedule_expression})"
 }
 
 # IAM role for EventBridge to run tasks
