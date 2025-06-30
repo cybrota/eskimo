@@ -15,6 +15,12 @@ variable "github_org" {
   type        = string
 }
 
+variable "github_repository" {
+  description = "GitHub repository using OIDC"
+  type        = string
+  default     = "cybrota/eskimo"
+}
+
 variable "secret_name" {
   description = "Secrets Manager secret name"
   type        = string

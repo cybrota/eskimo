@@ -1,19 +1,15 @@
 # ─────────────── Build your Go binary ───────────────
-FROM --platform=linux/amd64 golang:1.23 AS builder
+FROM golang:1.23 AS builder
 
 WORKDIR /app
-
-# Install goreleaser for cross compilation
-RUN curl -sfL https://github.com/goreleaser/goreleaser/releases/latest/download/goreleaser_Linux_x86_64.tar.gz \
-    | tar -xz -C /usr/local/bin goreleaser
 
 # Download deps
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Build using goreleaser
+# Build
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 goreleaser build --clean --snapshot --single-target -o /app/eskimo
+RUN CGO_ENABLED=0 GOOS=linux go build -o eskimo .
 
 # ────────── Runtime with Python & Git and HomeBrew installed ─────────
 FROM python:3.11-slim-bullseye AS runtime
