@@ -212,3 +212,29 @@ resource "aws_cloudwatch_event_target" "ecs" {
     platform_version = "LATEST"
   }
 }
+
+# CloudWatch Event rule for manual trigger
+resource "aws_cloudwatch_event_rule" "manual" {
+  name          = "eskimo-manual"
+  event_pattern = jsonencode({
+    source = ["eskimo.manual"]
+  })
+}
+
+resource "aws_cloudwatch_event_target" "manual" {
+  rule      = aws_cloudwatch_event_rule.manual.name
+  target_id = "ManualEcsTask"
+  arn       = module.ecs_cluster.arn
+  role_arn  = aws_iam_role.event.arn
+
+  ecs_target {
+    task_definition_arn = aws_ecs_task_definition.scan.arn
+    launch_type         = "FARGATE"
+    network_configuration {
+      subnets          = module.vpc.public_subnets
+      security_groups  = [aws_security_group.ecs_tasks.id]
+      assign_public_ip = true
+    }
+    platform_version = "LATEST"
+  }
+}
