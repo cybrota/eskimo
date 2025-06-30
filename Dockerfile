@@ -9,7 +9,7 @@ RUN go mod download
 
 # Build
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o eskimo ./cmd/eskimo
+RUN CGO_ENABLED=0 GOOS=linux go build -o eskimo .
 
 # ────────── Runtime with Python & Git and HomeBrew installed ─────────
 FROM python:3.11-slim-bullseye AS runtime
