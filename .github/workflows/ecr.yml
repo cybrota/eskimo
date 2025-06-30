@@ -35,6 +35,5 @@ jobs:
         run: |
           IMAGE_URI=525500656121.dkr.ecr.us-west-2.amazonaws.com/eskimo
           docker push $IMAGE_URI:${{ github.sha }}
-          docker push $IMAGE_URI:latest
           DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' $IMAGE_URI:${{ github.sha }})
           echo "digest=${DIGEST##*@}" >> "$GITHUB_OUTPUT"
