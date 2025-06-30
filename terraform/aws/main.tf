@@ -140,9 +140,17 @@ resource "aws_cloudwatch_log_group" "ecs" {
   retention_in_days = 30
 }
 
+locals {
+  repository_url = module.ecr.repository_url
+  repository_name = element(
+    split("/", local.repository_url),
+    length(split("/", local.repository_url)) - 1
+  )
+}
+
 # Latest image digest
 data "aws_ecr_image" "latest" {
-  repository_name = module.ecr.repository_name
+  repository_name = local.repository_name
   image_tag       = "latest"
 }
 
