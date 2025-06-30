@@ -1,0 +1,34 @@
+name: Build and Push Image
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@5579c002bb4778aa43395ef1df492868a9a1c83f
+        with:
+          role-to-assume: arn:aws:iam::525500656121:role/eskimo-github-ecr
+          aws-region: us-west-2
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 525500656121.dkr.ecr.us-west-2.amazonaws.com
+
+      - name: Build image
+        run: docker build -t eskimo .
+
+      - name: Tag image
+        run: docker tag eskimo:latest 525500656121.dkr.ecr.us-west-2.amazonaws.com/eskimo:latest
+
+      - name: Push image
+        run: docker push 525500656121.dkr.ecr.us-west-2.amazonaws.com/eskimo:latest
