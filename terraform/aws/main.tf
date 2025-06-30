@@ -146,18 +146,17 @@ locals {
     split("/", local.repository_url),
     length(split("/", local.repository_url)) - 1
   )
+  image = "${module.ecr.repository_url}@${data.aws_ecr_image.latest.image_digest}"
+
 }
 
 # Latest image digest
 data "aws_ecr_image" "latest" {
   repository_name = local.repository_name
-  image_tag       = "latest"
+  most_recent     = true
 }
 
 # ECS Task Definition
-locals {
-  image = "${module.ecr.repository_url}@${data.aws_ecr_image.latest.image_digest}"
-}
 
 resource "aws_ecs_task_definition" "scan" {
   family                   = "eskimo-scan"
