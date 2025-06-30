@@ -140,9 +140,15 @@ resource "aws_cloudwatch_log_group" "ecs" {
   retention_in_days = 30
 }
 
+# Latest image digest
+data "aws_ecr_image" "latest" {
+  repository_name = module.ecr.repository_name
+  image_tag       = "latest"
+}
+
 # ECS Task Definition
 locals {
-  image = "${module.ecr.repository_url}:latest"
+  image = "${module.ecr.repository_url}@${data.aws_ecr_image.latest.image_digest}"
 }
 
 resource "aws_ecs_task_definition" "scan" {
@@ -248,7 +254,7 @@ resource "aws_cloudwatch_event_target" "ecs" {
 
 # CloudWatch Event rule for manual trigger
 resource "aws_cloudwatch_event_rule" "manual" {
-  name          = "eskimo-manual"
+  name = "eskimo-manual"
   event_pattern = jsonencode({
     source = ["eskimo.manual"]
   })
