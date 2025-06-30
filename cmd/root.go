@@ -9,10 +9,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"eskimo/internal/auth"
-	"eskimo/internal/config"
-	internalgithub "eskimo/internal/github"
-	"eskimo/internal/scanner"
+	"github.com/cybrota/eskimo/internal/auth"
+	"github.com/cybrota/eskimo/internal/config"
+	internalgithub "github.com/cybrota/eskimo/internal/github"
+	"github.com/cybrota/eskimo/internal/scanner"
 )
 
 var (

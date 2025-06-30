@@ -1,8 +1,9 @@
 package main
 
 import (
-	"eskimo/cmd"
 	"os"
+
+	"github.com/cybrota/eskimo/cmd"
 )
 
 func main() {

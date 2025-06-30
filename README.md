@@ -14,56 +14,92 @@
   />
 </picture>
 
-A pluggable security scanner written in Go. It fetches all repositories in a GitHub organization and runs configured scanners against each repository.
-The scanners can be configured with commands to run, and their environment variables. Eskimo is useful for setting up daily/weekly scans on cloud environments to generate a baseline scan for an organization.
+Bring Your Own Scanners (BYOS) to your organization’s CI/CD pipelines. Eskimo discovers all repositories in a GitHub organization, clones them locally, and runs each scanner you configure—generating a snapshot baseline of your security posture on demand or on a schedule.
 
-Think Eskimo as BYOS - Bring Your Own Scanners tool that performs security scans based on a given configuration.
+## Why Use Eskimo?
 
-## Docker
+- **Centralized Scanning**
+  Automatically fetches every repository in your organization, so you never miss a repo or branch.
 
-Build and run using Docker:
+- **Configurable Scanners**
+  Define any scanner with its commands and environment variables in a simple YAML file.
 
-```bash
-docker build -t eskimo .
+- **Baseline & Audit**
+  Run daily or weekly to capture a baseline, then compare over time or spot new issues immediately.
 
-docker run -e GITHUB_TOKEN=xxxx -v $HOME/.config:/root/.config eskimo --org my-org
+- **Lightweight & Portable**
+  A single Go binary with zero external dependencies—runs anywhere Docker runs or as a native executable.
+
+## Key Features
+
+- **Auto-clone & Pull**
+  Clones each repo under `/tmp/github-repos`; if already present, pulls the latest changes.
+
+- **Flexible Configuration**
+  Define multiple scanners in `scanners.yaml`, toggle them on or off, set pre-commands, and pass custom env vars.
+
+- **Device-Flow Authentication**
+  Securely authenticate via GitHub’s device flow—no browser embeds in CI required.
+
+
+## Supported Platforms
+
+**Binary**
+- Linux
+- macOS
+
+**Cloud**
+- AWS
+
+## Installation
+
+**Option 1: Script Install**
+```sh
+curl -sfL https://raw.githubusercontent.com/cybrota/eskimo/refs/heads/main/install.sh | sh
 ```
 
-## Usage
+This will download the latest Eskimo binary and make it available on your $PATH.
 
-```bash
-go build
-./eskimo --org my-org --config scanners.yaml
+**Option 2: Download Prebuilt Binary**
 
-# To obtain a token using GitHub's device flow run:
+1. Go to the Releases page
+
+2. Download the archive for your OS and architecture
+
+3. Unpack and move eskimo into a directory on your $PATH
+
+## Usage Examples
+
+1. Run Scanners Against an Organization
+```sh
+# Uses scanners.yaml in current directory
+eskimo scan --org my-org
+```
+
+Or explicitly specify your config file:
+
+```sh
+eskimo scan --org my-org --config /path/to/scanners.yaml
+```
+
+2. Authenticate via Device Flow
+```sh
 eskimo auth --org my-org
-# The command prints a code and opens a browser for authorization
 ```
 
-Repositories are cloned under `/tmp/github-repos`. If a repository directory
-already exists, the latest changes will be pulled before running scanners.
+Follows GitHub’s device-flow: you’ll get a code to paste at github.com/device.
 
-Environment variables required:
+## The Risk of Unscanned Repositories
 
-- `GITHUB_TOKEN` – Personal access token with rights to read organization repositories
-- Scanner specific variables (see `scanners.yaml`)
+Without a centralized scanner, it’s easy to overlook new or forked repos—exposing your organization to unpatched vulnerabilities, drifted dependencies, or misconfigured workflows. Eskimo ensures every repo is covered by automating manual process of scanning code everytime there is a new scanner or a repo.
 
+## TODO
 
-## Configuration
+ - Webhook integration for real-time alerts to MS Teams or Slack
 
-`scanners.yaml` defines scanners and the commands executed for each repository. Example:
+ - Send to SIEM systems
 
-```yaml
-scanners:
-  - name: semgrep
-    command: ["semgrep", "ci", "--pro"]
-    env: ["SEMGREP_PAT_TOKEN"]
-    disable: false
-  - name: wiz
-    pre_command: ["wizcli", "auth"]
-    command: ["wizcli", "dir", "scan"]
-    env: ["WIZ_CLIENT_ID", "WIZ_CLIENT_SECRET"]
-    disable: true
-```
+## Further Reading
+- GitHub Supply-Chain Security: https://docs.github.com/en/code-security/supply-chain-security
 
-Set `disable: true` to skip running a scanner. If the flag is omitted or set to `false`, the scanner will run by default.
+- Device Flow Authentication: https://docs.github.com/en/developers/apps/authorizing-oauth-apps#device-flow
