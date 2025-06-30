@@ -1,5 +1,5 @@
 # ─────────────── Build your Go binary ───────────────
-FROM golang:1.23 AS builder
+FROM --platform=linux/amd64 golang:1.23 AS builder
 
 WORKDIR /app
 
@@ -9,10 +9,10 @@ RUN go mod download
 
 # Build
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o eskimo .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o eskimo .
 
 # ────────── Runtime with Python & Git and HomeBrew installed ─────────
-FROM python:3.11-slim-bullseye AS runtime
+FROM --platform=linux/amd64 python:3.11-slim-bullseye AS runtime
 
 # Install Git and Python
 RUN apt-get update \
