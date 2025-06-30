@@ -9,9 +9,9 @@ terraform {
 
   backend "s3" {
     bucket         = "eskimo-tf-state"
-    key            = "eksimo/terraform.tfstate"
+    key            = "infra/terraform.tfstate"
     region         = "us-west-2"
-    dynamodb_table = "eskimo-tf-lock"
+    dynamodb_table = "eskimo-infra-tf-lock"
   }
 }
 

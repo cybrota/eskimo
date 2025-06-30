@@ -31,7 +31,25 @@ module "ecr" {
   source  = "terraform-aws-modules/ecr/aws"
   version = "~> 1.5"
 
-  repository_name = "eskimo"
+  repository_name         = "eskimo"
+  create_lifecycle_policy = true
+  repository_lifecycle_policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Expire untagged images older than 14 days"
+        selection = {
+          tagStatus   = "untagged"
+          countType   = "sinceImagePushed"
+          countUnit   = "days"
+          countNumber = 14
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
 }
 
 # Secrets Manager
