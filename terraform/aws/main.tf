@@ -86,8 +86,26 @@ resource "aws_iam_role_policy_attachment" "github_ecr" {
 }
 
 # Secrets Manager
+data "aws_iam_policy_document" "kms" {
+  statement {
+    actions   = ["kms:*"]
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+    resources = ["*"]
+  }
+}
+
+resource "aws_kms_key" "secrets" {
+  description         = "Key for secrets and logs"
+  policy              = data.aws_iam_policy_document.kms.json
+  enable_key_rotation = true
+}
+
 resource "aws_secretsmanager_secret" "scanner" {
-  name = var.secret_name
+  name       = var.secret_name
+  kms_key_id = aws_kms_key.secrets.arn
 }
 
 resource "aws_secretsmanager_secret_version" "scanner" {
@@ -137,7 +155,8 @@ resource "aws_iam_role_policy_attachment" "secret_access" {
 # CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "ecs" {
   name              = "/ecs/eskimo"
-  retention_in_days = 30
+  retention_in_days = 365
+  kms_key_id        = aws_kms_key.secrets.arn
 }
 
 locals {
@@ -181,6 +200,7 @@ resource "aws_ecs_task_definition" "scan" {
           awslogs-stream-prefix = "eskimo"
         }
       }
+      readonlyRootFilesystem = true
       secrets = [
         { name = "GITHUB_TOKEN", valueFrom = "${aws_secretsmanager_secret.scanner.arn}:GITHUB_TOKEN::" },
         { name = "WIZ_CLIENT_ID", valueFrom = "${aws_secretsmanager_secret.scanner.arn}:WIZ_CLIENT_ID::" },
@@ -193,13 +213,15 @@ resource "aws_ecs_task_definition" "scan" {
 # Security group for tasks
 resource "aws_security_group" "ecs_tasks" {
   name_prefix = "ecs-tasks-"
+  description = "Security group for ECS tasks"
   vpc_id      = module.vpc.vpc_id
 
   egress {
+    description = "Allow outbound to VPC"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [module.vpc.vpc_cidr_block]
   }
 }
 
