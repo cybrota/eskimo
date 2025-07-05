@@ -4,8 +4,7 @@ locals {
 }
 
 module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.0"
+  source = "git::https://github.com/terraform-aws-modules/terraform-aws-vpc.git?ref=7c1f791efd61f326ed6102d564d1a65d1eceedf0"
 
   name = "eskimo-vpc"
   cidr = "10.0.0.0/16"
@@ -20,16 +19,14 @@ module "vpc" {
 
 # ECS Cluster
 module "ecs_cluster" {
-  source  = "terraform-aws-modules/ecs/aws//modules/cluster"
-  version = "~> 5.0"
+  source = "git::https://github.com/terraform-aws-modules/terraform-aws-ecs.git//modules/cluster?ref=3bc8d1d434f2cd841e600b3a1a9fbddea670d768"
 
   cluster_name = var.cluster_name
 }
 
 # ECR Repository for the scanner image
 module "ecr" {
-  source  = "terraform-aws-modules/ecr/aws"
-  version = "~> 1.5"
+  source = "git::https://github.com/terraform-aws-modules/terraform-aws-ecr.git?ref=f475c99a68f1f3b0e0bf996d098d94c68570eab8"
 
   repository_name         = "eskimo"
   create_lifecycle_policy = true
@@ -88,12 +85,17 @@ resource "aws_iam_role_policy_attachment" "github_ecr" {
 # Secrets Manager
 data "aws_iam_policy_document" "kms" {
   statement {
-    actions   = ["kms:*"]
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:GenerateDataKey*",
+      "kms:DescribeKey"
+    ]
     principals {
       type        = "AWS"
       identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
     }
-    resources = ["*"]
+    resources = ["arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*"]
   }
 }
 
@@ -113,6 +115,88 @@ resource "aws_secretsmanager_secret_version" "scanner" {
   secret_string = jsonencode(var.secret_values)
 }
 
+data "archive_file" "rotate_zip" {
+  type        = "zip"
+  source_file = "${path.module}/rotate.py"
+  output_path = "${path.module}/rotate.zip"
+}
+
+data "aws_iam_policy_document" "lambda_assume" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "lambda_rotate" {
+  name               = "rotate-secret-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_basic" {
+  role       = aws_iam_role.lambda_rotate.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+data "aws_iam_policy_document" "lambda_secret" {
+  statement {
+    actions = [
+      "secretsmanager:GetSecretValue",
+      "secretsmanager:PutSecretValue",
+      "secretsmanager:DescribeSecret",
+      "secretsmanager:UpdateSecretVersionStage"
+    ]
+    resources = [aws_secretsmanager_secret.scanner.arn]
+  }
+}
+
+resource "aws_iam_policy" "lambda_secret" {
+  name   = "rotate-secret-policy"
+  policy = data.aws_iam_policy_document.lambda_secret.json
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_secret" {
+  role       = aws_iam_role.lambda_rotate.name
+  policy_arn = aws_iam_policy.lambda_secret.arn
+}
+
+resource "aws_sqs_queue" "lambda_dlq" {
+  name              = "rotate-dlq"
+  kms_master_key_id = aws_kms_key.secrets.arn
+}
+
+resource "aws_lambda_function" "rotate" {
+  filename                       = data.archive_file.rotate_zip.output_path
+  function_name                  = "rotate-secret"
+  handler                        = "rotate.handler"
+  runtime                        = "python3.11"
+  source_code_hash               = data.archive_file.rotate_zip.output_base64sha256
+  role                           = aws_iam_role.lambda_rotate.arn
+  reserved_concurrent_executions = 1
+  tracing_config {
+    mode = "Active"
+  }
+  vpc_config {
+    subnet_ids         = module.vpc.public_subnets
+    security_group_ids = [aws_security_group.ecs_tasks.id]
+  }
+  dead_letter_config {
+    target_arn = aws_sqs_queue.lambda_dlq.arn
+  }
+  #checkov:skip=CKV_AWS_272: code signing not required for placeholder lambda
+}
+
+resource "aws_secretsmanager_secret_rotation" "scanner" {
+  secret_id           = aws_secretsmanager_secret.scanner.id
+  rotation_lambda_arn = aws_lambda_function.rotate.arn
+  rotation_rules {
+    automatically_after_days = 30
+  }
+}
+
 # IAM role for ECS task execution
 data "aws_iam_policy_document" "task_assume" {
   statement {
@@ -126,6 +210,11 @@ data "aws_iam_policy_document" "task_assume" {
 
 resource "aws_iam_role" "task_exec" {
   name               = "eskimo-task-exec"
+  assume_role_policy = data.aws_iam_policy_document.task_assume.json
+}
+
+resource "aws_iam_role" "task" {
+  name               = "eskimo-task"
   assume_role_policy = data.aws_iam_policy_document.task_assume.json
 }
 
@@ -148,7 +237,7 @@ resource "aws_iam_policy" "secret_access" {
 }
 
 resource "aws_iam_role_policy_attachment" "secret_access" {
-  role       = aws_iam_role.task_exec.name
+  role       = aws_iam_role.task.name
   policy_arn = aws_iam_policy.secret_access.arn
 }
 
@@ -184,7 +273,7 @@ resource "aws_ecs_task_definition" "scan" {
   cpu                      = "512"
   memory                   = "1024"
   execution_role_arn       = aws_iam_role.task_exec.arn
-  task_role_arn            = aws_iam_role.task_exec.arn
+  task_role_arn            = aws_iam_role.task.arn
 
   container_definitions = jsonencode([
     {
@@ -254,7 +343,7 @@ data "aws_iam_policy_document" "event" {
   }
   statement {
     actions   = ["iam:PassRole"]
-    resources = [aws_iam_role.task_exec.arn]
+    resources = [aws_iam_role.task_exec.arn, aws_iam_role.task.arn]
   }
 }
 
