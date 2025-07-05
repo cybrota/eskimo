@@ -55,12 +55,18 @@ func (c *Client) CloneRepo(repo *github.Repository, baseDir string) (string, err
 	dest := filepath.Join(baseDir, name)
 
 	if _, err := os.Stat(dest); err == nil {
-		cmd := exec.Command("git", "-C", dest, "pull")
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			return "", fmt.Errorf("git pull failed: %v: %s", err, string(out))
+		if fi, err := os.Stat(filepath.Join(dest, ".git")); err == nil && fi.IsDir() {
+			cmd := exec.Command("git", "-C", dest, "pull")
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				return "", fmt.Errorf("git pull failed: %v: %s", err, string(out))
+			}
+			return dest, nil
 		}
-		return dest, nil
+		// directory exists but is not a git repo
+		if err := os.RemoveAll(dest); err != nil {
+			return "", err
+		}
 	} else if !os.IsNotExist(err) {
 		return "", err
 	}
