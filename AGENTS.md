@@ -47,6 +47,6 @@ This repository follows these guidelines for contributions by AI agents or human
 
 1. **Style & Formatting**: Run TFLint to make sure Terraform code is linted.
 
-2. **Security**: Run TFSec to make sure Terraform is free from critical vulnerabilities.
+2. **Security**: Run TFSec & Checkov to make sure Terraform is free from critical and high vulnerabilities.
 
 3. **Other**: Follow Least Privilige Principle for creating IAM Roles & Policies.
