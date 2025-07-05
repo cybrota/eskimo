@@ -17,7 +17,7 @@ type Scanner struct {
 	Disable    bool
 }
 
-func (s Scanner) Run(ctx context.Context, repoPath string) error {
+func (s Scanner) Run(ctx context.Context, repoPath string) ([]byte, error) {
 	env := os.Environ()
 	for _, key := range s.EnvVars {
 		val := os.Getenv(key)
@@ -29,16 +29,15 @@ func (s Scanner) Run(ctx context.Context, repoPath string) error {
 		pre.Env = env
 		out, err := pre.CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("pre-command failed: %v: %s", err, string(out))
+			return out, fmt.Errorf("pre-command failed: %v: %s", err, string(out))
 		}
 	}
 	if len(s.Command) == 0 {
-		return fmt.Errorf("no command specified")
+		return nil, fmt.Errorf("no command specified")
 	}
 	cmd := exec.CommandContext(ctx, s.Command[0], s.Command[1:]...)
 	cmd.Env = env
 	cmd.Dir = repoPath
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	out, err := cmd.CombinedOutput()
+	return out, err
 }

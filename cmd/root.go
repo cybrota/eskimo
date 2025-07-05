@@ -19,6 +19,13 @@ import (
 	"github.com/cybrota/eskimo/internal/scanner"
 )
 
+type scanLog struct {
+	repo    string
+	scanner string
+	output  string
+	err     error
+}
+
 var (
 	org        string
 	configPath string
@@ -73,6 +80,21 @@ var rootCmd = &cobra.Command{
 		cloneWG.Wait()
 		close(repoCh)
 
+		logCh := make(chan scanLog, len(repos)*len(cfg.Scanners))
+		var logWG sync.WaitGroup
+		logWG.Add(1)
+		go func() {
+			defer logWG.Done()
+			for l := range logCh {
+				prefix := fmt.Sprintf("%s: %s", l.repo, l.scanner)
+				if l.err != nil {
+					fmt.Printf("%s failed: %v\n%s\n", prefix, l.err, l.output)
+				} else if l.output != "" {
+					fmt.Printf("%s output:\n%s\n", prefix, l.output)
+				}
+			}
+		}()
+
 		scanSem := make(chan struct{}, parallel)
 		var scanWG sync.WaitGroup
 		for info := range repoCh {
@@ -88,9 +110,8 @@ var rootCmd = &cobra.Command{
 						defer wg.Done()
 						s := scanner.Scanner(scCopy)
 						fmt.Printf("%s: running %s...\n", in.name, scCopy.Name)
-						if err := s.Run(ctx, in.path); err != nil {
-							log.Printf("scanner %s failed on %s: %v", scCopy.Name, in.name, err)
-						}
+						out, err := s.Run(ctx, in.path)
+						logCh <- scanLog{repo: in.name, scanner: scCopy.Name, output: string(out), err: err}
 					}()
 				}
 				wg.Wait()
@@ -98,6 +119,8 @@ var rootCmd = &cobra.Command{
 			}(info)
 		}
 		scanWG.Wait()
+		close(logCh)
+		logWG.Wait()
 
 		return nil
 	},
