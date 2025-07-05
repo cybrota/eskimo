@@ -38,6 +38,11 @@ This repository follows these guidelines for contributions by AI agents or human
 
 3. **Security**: Run go vet, govulncheck to make sure code is free from basic security issues.
 
+4. **Other**:
+   * By convention, one-method interfaces are named by the method name plus an -er suffix or similar modification to construct an agent noun: Reader, Writer, Formatter, CloseNotifier etc.
+   * When feasible, error strings should identify their origin, such as by having a prefix naming the operation or package that generated the error
+
+
 ## Terraform Related
 
 1. **Style & Formatting**: Run TFLint to make sure Terraform code is linted.
