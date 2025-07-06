@@ -3,11 +3,26 @@ data "aws_caller_identity" "current" {}
 
 data "aws_iam_policy_document" "kms" {
   statement {
-    sid       = "EnableRoot"
-    actions   = ["kms:*"]
+    sid     = "EnableRoot"
+    actions = ["kms:*"]
     principals {
       type        = "AWS"
       identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+    resources = ["arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*"]
+  }
+  statement {
+    sid    = "AllowDynamo"
+    effect = "Allow"
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:GenerateDataKey*",
+      "kms:DescribeKey"
+    ]
+    principals {
+      type        = "Service"
+      identifiers = ["dynamodb.${var.region}.amazonaws.com"]
     }
     resources = ["arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*"]
   }

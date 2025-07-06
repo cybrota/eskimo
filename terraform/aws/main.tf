@@ -85,11 +85,29 @@ resource "aws_iam_role_policy_attachment" "github_ecr" {
 # Secrets Manager
 data "aws_iam_policy_document" "kms" {
   statement {
-    sid       = "EnableRoot"
-    actions   = ["kms:*"]
+    sid     = "EnableRoot"
+    actions = ["kms:*"]
     principals {
       type        = "AWS"
       identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+    resources = ["arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*"]
+  }
+  statement {
+    sid    = "AllowServices"
+    effect = "Allow"
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:GenerateDataKey*",
+      "kms:DescribeKey"
+    ]
+    principals {
+      type = "Service"
+      identifiers = [
+        "logs.${var.region}.amazonaws.com",
+        "sqs.${var.region}.amazonaws.com"
+      ]
     }
     resources = ["arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*"]
   }
@@ -146,6 +164,10 @@ data "aws_iam_policy_document" "lambda_secret" {
       "secretsmanager:UpdateSecretVersionStage"
     ]
     resources = [aws_secretsmanager_secret.scanner.arn]
+  }
+  statement {
+    actions   = ["sqs:SendMessage"]
+    resources = [aws_sqs_queue.lambda_dlq.arn]
   }
 }
 
