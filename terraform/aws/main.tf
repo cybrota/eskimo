@@ -212,6 +212,15 @@ resource "aws_lambda_function" "rotate" {
   #checkov:skip=CKV_AWS_272: code signing not required for placeholder lambda
 }
 
+# Allow Secrets Manager service to invoke the rotation function
+resource "aws_lambda_permission" "allow_secretsmanager" {
+  statement_id  = "AllowSecretsManagerInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.rotate.function_name
+  principal     = "secretsmanager.amazonaws.com"
+  source_arn    = aws_secretsmanager_secret.scanner.arn
+}
+
 resource "aws_secretsmanager_secret_rotation" "scanner" {
   secret_id           = aws_secretsmanager_secret.scanner.id
   rotation_lambda_arn = aws_lambda_function.rotate.arn
