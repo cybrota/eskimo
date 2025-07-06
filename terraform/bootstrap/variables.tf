@@ -21,3 +21,9 @@ variable "bootstrap_lock_table_name" {
   type        = string
   default     = "eskimo-bootstrap-tf-lock"
 }
+
+variable "state_log_bucket_name" {
+  description = "Name of S3 bucket to store state bucket access logs"
+  type        = string
+  default     = "eskimo-tf-logs"
+}

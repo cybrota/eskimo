@@ -28,6 +28,29 @@ data "aws_iam_policy_document" "kms" {
   }
 }
 
+module "state_log_bucket" {
+  source = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=e1fb51bce8008b0d5fd660e81d97ff7a101bdbc6"
+
+  bucket                            = var.state_log_bucket_name
+  attach_access_log_delivery_policy = true
+
+  versioning = {
+    enabled = true
+  }
+
+  server_side_encryption_configuration = {
+    rule = {
+      apply_server_side_encryption_by_default = {
+        sse_algorithm = "AES256"
+      }
+    }
+  }
+  logging = {
+    target_bucket = var.state_log_bucket_name
+    target_prefix = "logs/"
+  }
+}
+
 
 module "state_bucket" {
   source = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=e1fb51bce8008b0d5fd660e81d97ff7a101bdbc6"
@@ -44,6 +67,10 @@ module "state_bucket" {
         sse_algorithm = "AES256"
       }
     }
+  }
+  logging = {
+    target_bucket = module.state_log_bucket.s3_bucket_id
+    target_prefix = "state/"
   }
 }
 

@@ -28,6 +28,7 @@ terraform apply
 After this step you will have:
 
 - `eskimo-tf-state` S3 bucket
+- `eskimo-tf-logs` S3 bucket for state bucket access logs
 - `eskimo-infra-tf-lock` DynamoDB table
 - `eskimo-bootstrap-tf-lock` DynamoDB table
 
