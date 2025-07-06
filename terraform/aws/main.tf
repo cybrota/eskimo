@@ -106,7 +106,7 @@ data "aws_iam_policy_document" "kms" {
       type = "Service"
       identifiers = [
         "logs.${var.region}.amazonaws.com",
-        "sqs.${var.region}.amazonaws.com"
+        "sqs.amazonaws.com"
       ]
     }
     resources = ["arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*"]
@@ -153,6 +153,11 @@ resource "aws_iam_role" "lambda_rotate" {
 resource "aws_iam_role_policy_attachment" "lambda_basic" {
   role       = aws_iam_role.lambda_rotate.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_vpc" {
+  role       = aws_iam_role.lambda_rotate.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
 data "aws_iam_policy_document" "lambda_secret" {
