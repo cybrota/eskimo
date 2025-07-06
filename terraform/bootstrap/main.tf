@@ -3,12 +3,8 @@ data "aws_caller_identity" "current" {}
 
 data "aws_iam_policy_document" "kms" {
   statement {
-    actions = [
-      "kms:Encrypt",
-      "kms:Decrypt",
-      "kms:GenerateDataKey*",
-      "kms:DescribeKey"
-    ]
+    sid       = "EnableRoot"
+    actions   = ["kms:*"]
     principals {
       type        = "AWS"
       identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
@@ -16,6 +12,7 @@ data "aws_iam_policy_document" "kms" {
     resources = ["arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*"]
   }
 }
+
 
 module "state_bucket" {
   source = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=e1fb51bce8008b0d5fd660e81d97ff7a101bdbc6"

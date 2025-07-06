@@ -85,12 +85,8 @@ resource "aws_iam_role_policy_attachment" "github_ecr" {
 # Secrets Manager
 data "aws_iam_policy_document" "kms" {
   statement {
-    actions = [
-      "kms:Encrypt",
-      "kms:Decrypt",
-      "kms:GenerateDataKey*",
-      "kms:DescribeKey"
-    ]
+    sid       = "EnableRoot"
+    actions   = ["kms:*"]
     principals {
       type        = "AWS"
       identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
@@ -101,8 +97,8 @@ data "aws_iam_policy_document" "kms" {
 
 resource "aws_kms_key" "secrets" {
   description         = "Key for secrets and logs"
-  policy              = data.aws_iam_policy_document.kms.json
   enable_key_rotation = true
+  policy              = data.aws_iam_policy_document.kms.json
 }
 
 resource "aws_secretsmanager_secret" "scanner" {
