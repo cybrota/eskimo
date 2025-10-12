@@ -17,6 +17,8 @@ scanners:
     command: ["cycode", "scan", "path", "."]
     env: ["CYCODE_CLIENT_ID", "CYCODE_CLIENT_SECRET"]
     disable: true
+  - name: checkov
+    command: ["checkov", "--dir", "."]
 
   # OSS scanners
   - name: scharf

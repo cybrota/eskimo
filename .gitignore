@@ -33,3 +33,7 @@ go.work.sum
 eskimo
 terraform.tfstate
 .terraform
+*.tfvars
+*.zip
+.DS_STORE
+terraform/.DS_STORE

@@ -4,7 +4,8 @@ locals {
 }
 
 module "vpc" {
-  source = "git::https://github.com/terraform-aws-modules/terraform-aws-vpc.git?ref=7c1f791efd61f326ed6102d564d1a65d1eceedf0"
+  # v6.4.0 - fixes data.aws_region.name deprecation warning
+  source = "git::https://github.com/terraform-aws-modules/terraform-aws-vpc.git?ref=9b72a9ae8fbcdca4dec5535264e72e5357814a1f"
 
   name = "eskimo-vpc"
   cidr = "10.0.0.0/16"
@@ -17,11 +18,27 @@ module "vpc" {
   enable_vpn_gateway = false
 }
 
-# ECS Cluster
+# ECS Cluster with Fargate Spot capacity provider
 module "ecs_cluster" {
   source = "git::https://github.com/terraform-aws-modules/terraform-aws-ecs.git//modules/cluster?ref=3bc8d1d434f2cd841e600b3a1a9fbddea670d768"
 
   cluster_name = var.cluster_name
+
+  # Enable Fargate Spot capacity provider
+  fargate_capacity_providers = {
+    FARGATE = {
+      default_capacity_provider_strategy = {
+        weight = 0
+        base   = 0
+      }
+    }
+    FARGATE_SPOT = {
+      default_capacity_provider_strategy = {
+        weight = 100
+        base   = 1
+      }
+    }
+  }
 }
 
 # ECR Repository for the scanner image
@@ -174,6 +191,14 @@ data "aws_iam_policy_document" "lambda_secret" {
     actions   = ["sqs:SendMessage"]
     resources = [aws_sqs_queue.lambda_dlq.arn]
   }
+  # KMS permissions for encrypted SQS queue
+  statement {
+    actions = [
+      "kms:Decrypt",
+      "kms:GenerateDataKey"
+    ]
+    resources = [aws_kms_key.secrets.arn]
+  }
 }
 
 resource "aws_iam_policy" "lambda_secret" {
@@ -210,6 +235,13 @@ resource "aws_lambda_function" "rotate" {
     target_arn = aws_sqs_queue.lambda_dlq.arn
   }
   #checkov:skip=CKV_AWS_272: code signing not required for placeholder lambda
+
+  # Ensure IAM policies are attached before creating the Lambda
+  depends_on = [
+    aws_iam_role_policy_attachment.lambda_basic,
+    aws_iam_role_policy_attachment.lambda_vpc,
+    aws_iam_role_policy_attachment.lambda_secret
+  ]
 }
 
 # Allow Secrets Manager service to invoke the rotation function
@@ -245,6 +277,11 @@ resource "aws_iam_role" "task_exec" {
   assume_role_policy = data.aws_iam_policy_document.task_assume.json
 }
 
+resource "aws_iam_role_policy_attachment" "task_exec_secret_access" {
+  role       = aws_iam_role.task_exec.name      # eskimo-task-exec
+  policy_arn = aws_iam_policy.secret_access.arn # eskimo-secret-access
+}
+
 resource "aws_iam_role" "task" {
   name               = "eskimo-task"
   assume_role_policy = data.aws_iam_policy_document.task_assume.json
@@ -255,11 +292,18 @@ resource "aws_iam_role_policy_attachment" "task_exec" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# Allow task to read secrets
+# Allow task execution role to read secrets and decrypt with KMS
 data "aws_iam_policy_document" "secret_access" {
   statement {
     actions   = ["secretsmanager:GetSecretValue"]
     resources = [aws_secretsmanager_secret.scanner.arn]
+  }
+  statement {
+    actions = [
+      "kms:Decrypt",
+      "kms:DescribeKey"
+    ]
+    resources = [aws_kms_key.secrets.arn]
   }
 }
 
@@ -286,15 +330,16 @@ locals {
     split("/", local.repository_url),
     length(split("/", local.repository_url)) - 1
   )
-  image = "${module.ecr.repository_url}@${data.aws_ecr_image.latest.image_digest}"
+  image = "${module.ecr.repository_url}:latest"
 
 }
 
 # Latest image digest
-data "aws_ecr_image" "latest" {
-  repository_name = local.repository_name
-  most_recent     = true
-}
+# Commented out to allow destroy to proceed when image doesn't exist
+# data "aws_ecr_image" "latest" {
+#   repository_name = local.repository_name
+#   most_recent     = true
+# }
 
 # ECS Task Definition
 
@@ -306,6 +351,20 @@ resource "aws_ecs_task_definition" "scan" {
   memory                   = "1024"
   execution_role_arn       = aws_iam_role.task_exec.arn
   task_role_arn            = aws_iam_role.task.arn
+
+  # Declare the EFS volume
+  volume {
+    name = "tmp"
+
+    efs_volume_configuration {
+      file_system_id     = aws_efs_file_system.tmp.id
+      transit_encryption = "ENABLED"
+      authorization_config {
+        access_point_id = aws_efs_access_point.tmp.id
+        iam             = "ENABLED"
+      }
+    }
+  }
 
   container_definitions = jsonencode([
     {
@@ -322,6 +381,15 @@ resource "aws_ecs_task_definition" "scan" {
         }
       }
       readonlyRootFilesystem = true
+      # mount the EFS "tmp" volume into /tmp
+      mountPoints = [
+        {
+          sourceVolume  = "tmp"
+          containerPath = "/tmp"
+          readOnly      = false
+        }
+      ]
+
       secrets = [
         { name = "GITHUB_TOKEN", valueFrom = "${aws_secretsmanager_secret.scanner.arn}:GITHUB_TOKEN::" },
         { name = "WIZ_CLIENT_ID", valueFrom = "${aws_secretsmanager_secret.scanner.arn}:WIZ_CLIENT_ID::" },
@@ -342,7 +410,7 @@ resource "aws_security_group" "ecs_tasks" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = [module.vpc.vpc_cidr_block]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
@@ -370,12 +438,18 @@ resource "aws_iam_role" "event" {
 
 data "aws_iam_policy_document" "event" {
   statement {
-    actions   = ["ecs:RunTask"]
-    resources = [aws_ecs_task_definition.scan.arn]
+    actions = ["ecs:RunTask"]
+    resources = [
+      module.ecs_cluster.arn,
+      aws_ecs_task_definition.scan.arn
+    ]
   }
   statement {
-    actions   = ["iam:PassRole"]
-    resources = [aws_iam_role.task_exec.arn, aws_iam_role.task.arn]
+    actions = ["iam:PassRole"]
+    resources = [
+      aws_iam_role.task_exec.arn,
+      aws_iam_role.task.arn
+    ]
   }
 }
 
@@ -392,7 +466,12 @@ resource "aws_cloudwatch_event_target" "ecs" {
 
   ecs_target {
     task_definition_arn = aws_ecs_task_definition.scan.arn
-    launch_type         = "FARGATE"
+    # Use capacity provider strategy (Fargate Spot) instead of launch_type
+    capacity_provider_strategy {
+      capacity_provider = "FARGATE_SPOT"
+      weight            = 100
+      base              = 1
+    }
     network_configuration {
       subnets          = module.vpc.public_subnets
       security_groups  = [aws_security_group.ecs_tasks.id]
@@ -418,7 +497,12 @@ resource "aws_cloudwatch_event_target" "manual" {
 
   ecs_target {
     task_definition_arn = aws_ecs_task_definition.scan.arn
-    launch_type         = "FARGATE"
+    # Use capacity provider strategy (Fargate Spot) instead of launch_type
+    capacity_provider_strategy {
+      capacity_provider = "FARGATE_SPOT"
+      weight            = 100
+      base              = 1
+    }
     network_configuration {
       subnets          = module.vpc.public_subnets
       security_groups  = [aws_security_group.ecs_tasks.id]
