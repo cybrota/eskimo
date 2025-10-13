@@ -53,7 +53,8 @@ var rootCmd = &cobra.Command{
 		os.MkdirAll(baseDir, 0755)
 		fmt.Printf("found %d repositories\n", len(repos))
 
-		parallel := runtime.NumCPU()
+		// For I/O-bound workloads, use higher parallelism than CPU count
+		parallel := runtime.NumCPU() * 4
 		sem := make(chan struct{}, parallel)
 		type repoInfo struct {
 			name string

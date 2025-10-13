@@ -349,8 +349,8 @@ resource "aws_ecs_task_definition" "scan" {
   family                   = "eskimo-scan"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = "512"
-  memory                   = "1024"
+  cpu                      = "2048"  # 2 vCPU (was 512)
+  memory                   = "4096"  # 4 GB (was 1024)
   execution_role_arn       = aws_iam_role.task_exec.arn
   task_role_arn            = aws_iam_role.task.arn
 
@@ -394,7 +394,8 @@ resource "aws_ecs_task_definition" "scan" {
       environment = [
         { name = "TRIVY_CACHE_DIR", value = "/tmp/trivy-cache" },
         { name = "XDG_CACHE_HOME", value = "/tmp" },
-        { name = "HOME", value = "/tmp" }
+        { name = "HOME", value = "/tmp" },
+        { name = "GOMEMLIMIT", value = "3800MiB" }
       ]
 
       secrets = [
