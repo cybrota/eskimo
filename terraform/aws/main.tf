@@ -330,8 +330,7 @@ locals {
     split("/", local.repository_url),
     length(split("/", local.repository_url)) - 1
   )
-  image = "${module.ecr.repository_url}:latest"
-
+  image = "${module.ecr.repository_url}:58743bbeec8a4d4491cc30d34e893836ac31c50e"
 }
 
 # Latest image digest
@@ -388,6 +387,10 @@ resource "aws_ecs_task_definition" "scan" {
           containerPath = "/tmp"
           readOnly      = false
         }
+      ]
+      environment = [
+        { name = "TRIVY_CACHE_DIR", value = "/tmp/trivy-cache" },
+        { name = "XDG_CACHE_HOME", value = "/tmp" }
       ]
 
       secrets = [

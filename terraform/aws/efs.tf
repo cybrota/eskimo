@@ -28,12 +28,43 @@ resource "aws_efs_access_point" "tmp" {
     gid = 1000
   }
 
+  # Use a dedicated /tmp directory so tasks can write to the mount root
   root_directory {
-    path = "/"
+    path = "/tmp"
     creation_info {
       owner_uid   = 1000
       owner_gid   = 1000
       permissions = "0777"
     }
   }
+}
+
+# Security group and mount targets to make the file system reachable from ECS tasks
+resource "aws_security_group" "efs" {
+  name_prefix = "efs-"
+  description = "Security group for EFS"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description     = "NFS from ECS tasks"
+    from_port       = 2049
+    to_port         = 2049
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ecs_tasks.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_efs_mount_target" "tmp" {
+  for_each = toset(module.vpc.public_subnets)
+
+  file_system_id  = aws_efs_file_system.tmp.id
+  subnet_id       = each.value
+  security_groups = [aws_security_group.efs.id]
 }
