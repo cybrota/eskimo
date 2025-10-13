@@ -73,13 +73,13 @@ This will download the latest Eskimo binary and make it available on your $PATH.
 1. Run Scanners Against an Organization
 ```sh
 # Uses scanners.yaml in current directory
-eskimo scan --org my-org
+eskimo --org my-org
 ```
 
 Or explicitly specify your config file:
 
 ```sh
-eskimo scan --org my-org --config /path/to/scanners.yaml
+eskimo --org my-org --config /path/to/scanners.yaml
 ```
 
 2. Authenticate via Device Flow
@@ -87,7 +87,7 @@ eskimo scan --org my-org --config /path/to/scanners.yaml
 eskimo auth --org my-org
 ```
 
-Follows GitHub’s device-flow: you’ll get a code to paste at github.com/device.
+Follows GitHub's device-flow: you'll get a code to paste at github.com/device.
 
 ## The Risk of Unscanned Repositories
 
