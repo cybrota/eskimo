@@ -330,15 +330,18 @@ locals {
     split("/", local.repository_url),
     length(split("/", local.repository_url)) - 1
   )
-  image = "${module.ecr.repository_url}:103f915948b4987a416e612872e1374b83a98a5e"
+  # Use provided image_tag if set, otherwise use latest image digest from ECR
+  image = var.image_tag != "" ? "${module.ecr.repository_url}:${var.image_tag}" : "${module.ecr.repository_url}@${data.aws_ecr_image.latest[0].image_digest}"
 }
 
-# Latest image digest
-# Commented out to allow destroy to proceed when image doesn't exist
-# data "aws_ecr_image" "latest" {
-#   repository_name = local.repository_name
-#   most_recent     = true
-# }
+# Fetch latest image from ECR only if image_tag is not provided
+data "aws_ecr_image" "latest" {
+  count           = var.image_tag == "" ? 1 : 0
+  repository_name = local.repository_name
+  most_recent     = true
+
+  depends_on = [module.ecr]
+}
 
 # ECS Task Definition
 
@@ -390,7 +393,8 @@ resource "aws_ecs_task_definition" "scan" {
       ]
       environment = [
         { name = "TRIVY_CACHE_DIR", value = "/tmp/trivy-cache" },
-        { name = "XDG_CACHE_HOME", value = "/tmp" }
+        { name = "XDG_CACHE_HOME", value = "/tmp" },
+        { name = "HOME", value = "/tmp" }
       ]
 
       secrets = [

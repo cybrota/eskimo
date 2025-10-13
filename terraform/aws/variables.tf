@@ -38,3 +38,9 @@ variable "scan_schedule_expression" {
   type        = string
   default     = "0 0 ? * MON *"
 }
+
+variable "image_tag" {
+  description = "Docker image tag to use. If empty, will use most recent image in ECR"
+  type        = string
+  default     = ""
+}
