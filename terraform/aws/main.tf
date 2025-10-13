@@ -330,7 +330,7 @@ locals {
     split("/", local.repository_url),
     length(split("/", local.repository_url)) - 1
   )
-  image = "${module.ecr.repository_url}:58743bbeec8a4d4491cc30d34e893836ac31c50e"
+  image = "${module.ecr.repository_url}:103f915948b4987a416e612872e1374b83a98a5e"
 }
 
 # Latest image digest

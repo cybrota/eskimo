@@ -56,11 +56,8 @@ func (c *Client) CloneRepo(repo *github.Repository, baseDir string) (string, err
 
 	if _, err := os.Stat(dest); err == nil {
 		if fi, err := os.Stat(filepath.Join(dest, ".git")); err == nil && fi.IsDir() {
-			// Add directory to safe.directory to avoid "dubious ownership" errors
-			safeCmd := exec.Command("git", "config", "--global", "--add", "safe.directory", dest)
-			_ = safeCmd.Run() // ignore errors - pull will fail anyway if there's a real issue
-
-			cmd := exec.Command("git", "-C", dest, "pull")
+			// Use -c flag to pass safe.directory config inline (works with read-only filesystems)
+			cmd := exec.Command("git", "-c", fmt.Sprintf("safe.directory=%s", dest), "-C", dest, "pull")
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				return "", fmt.Errorf("git pull failed: %v: %s", err, string(out))
