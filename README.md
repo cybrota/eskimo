@@ -14,7 +14,7 @@
   />
 </picture>
 
-Bring Your Own Scanners (BYOS) to your organization’s CI/CD pipelines. Eskimo discovers all repositories in a GitHub organization, clones them locally, and runs each scanner you configure—generating a snapshot baseline of your security posture on demand or on a schedule.
+**Centralized security scanning for your entire GitHub organization.** Eskimo automatically discovers all repositories, runs your configured security scanners, and delivers a complete baseline of your security posture—no repo left behind.
 
 ## Why Use Eskimo?
 
