@@ -56,8 +56,7 @@ func (c *Client) CloneRepo(repo *github.Repository, baseDir string) (string, err
 
 	if _, err := os.Stat(dest); err == nil {
 		if fi, err := os.Stat(filepath.Join(dest, ".git")); err == nil && fi.IsDir() {
-			// Use -c flag to pass safe.directory config inline (works with read-only filesystems)
-			cmd := exec.Command("git", "-c", fmt.Sprintf("safe.directory=%s", dest), "-C", dest, "pull")
+			cmd := exec.Command("git", "-C", dest, "pull")
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				return "", fmt.Errorf("git pull failed: %v: %s", err, string(out))
