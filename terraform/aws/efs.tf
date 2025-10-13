@@ -17,6 +17,8 @@ resource "aws_efs_file_system" "tmp" {
   lifecycle_policy {
     transition_to_primary_storage_class = "AFTER_1_ACCESS"
   }
+
+  tags = var.tags
 }
 
 # Access point rooted at "/" with 0777 perms
@@ -37,6 +39,8 @@ resource "aws_efs_access_point" "tmp" {
       permissions = "0777"
     }
   }
+
+  tags = var.tags
 }
 
 # Security group and mount targets to make the file system reachable from ECS tasks
@@ -59,6 +63,8 @@ resource "aws_security_group" "efs" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = var.tags
 }
 
 resource "aws_efs_mount_target" "tmp" {

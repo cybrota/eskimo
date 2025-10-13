@@ -44,3 +44,13 @@ variable "image_tag" {
   type        = string
   default     = ""
 }
+
+variable "tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default = {
+    Project     = "eskimo"
+    ManagedBy   = "terraform"
+    Environment = "production"
+  }
+}

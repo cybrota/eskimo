@@ -16,6 +16,8 @@ module "vpc" {
   enable_nat_gateway = false
   single_nat_gateway = false
   enable_vpn_gateway = false
+
+  tags = var.tags
 }
 
 # ECS Cluster with Fargate Spot capacity provider
@@ -39,6 +41,8 @@ module "ecs_cluster" {
       }
     }
   }
+
+  tags = var.tags
 }
 
 # ECR Repository for the scanner image
@@ -64,6 +68,8 @@ module "ecr" {
       }
     ]
   })
+
+  tags = var.tags
 }
 
 data "aws_caller_identity" "current" {}
@@ -72,6 +78,8 @@ resource "aws_iam_openid_connect_provider" "github" {
   url             = "https://token.actions.githubusercontent.com"
   client_id_list  = ["sts.amazonaws.com"]
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+
+  tags = var.tags
 }
 
 data "aws_iam_policy_document" "github_ecr_trust" {
@@ -92,6 +100,8 @@ data "aws_iam_policy_document" "github_ecr_trust" {
 resource "aws_iam_role" "github_ecr" {
   name               = "eskimo-github-ecr"
   assume_role_policy = data.aws_iam_policy_document.github_ecr_trust.json
+
+  tags = var.tags
 }
 
 resource "aws_iam_role_policy_attachment" "github_ecr" {
@@ -134,11 +144,15 @@ resource "aws_kms_key" "secrets" {
   description         = "Key for secrets and logs"
   enable_key_rotation = true
   policy              = data.aws_iam_policy_document.kms.json
+
+  tags = var.tags
 }
 
 resource "aws_secretsmanager_secret" "scanner" {
   name       = var.secret_name
   kms_key_id = aws_kms_key.secrets.arn
+
+  tags = var.tags
 }
 
 resource "aws_secretsmanager_secret_version" "scanner" {
@@ -165,6 +179,8 @@ data "aws_iam_policy_document" "lambda_assume" {
 resource "aws_iam_role" "lambda_rotate" {
   name               = "rotate-secret-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
+
+  tags = var.tags
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_basic" {
@@ -204,6 +220,8 @@ data "aws_iam_policy_document" "lambda_secret" {
 resource "aws_iam_policy" "lambda_secret" {
   name   = "rotate-secret-policy"
   policy = data.aws_iam_policy_document.lambda_secret.json
+
+  tags = var.tags
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_secret" {
@@ -214,6 +232,8 @@ resource "aws_iam_role_policy_attachment" "lambda_secret" {
 resource "aws_sqs_queue" "lambda_dlq" {
   name              = "rotate-dlq"
   kms_master_key_id = aws_kms_key.secrets.arn
+
+  tags = var.tags
 }
 
 resource "aws_lambda_function" "rotate" {
@@ -242,6 +262,8 @@ resource "aws_lambda_function" "rotate" {
     aws_iam_role_policy_attachment.lambda_vpc,
     aws_iam_role_policy_attachment.lambda_secret
   ]
+
+  tags = var.tags
 }
 
 # Allow Secrets Manager service to invoke the rotation function
@@ -275,6 +297,8 @@ data "aws_iam_policy_document" "task_assume" {
 resource "aws_iam_role" "task_exec" {
   name               = "eskimo-task-exec"
   assume_role_policy = data.aws_iam_policy_document.task_assume.json
+
+  tags = var.tags
 }
 
 resource "aws_iam_role_policy_attachment" "task_exec_secret_access" {
@@ -285,6 +309,8 @@ resource "aws_iam_role_policy_attachment" "task_exec_secret_access" {
 resource "aws_iam_role" "task" {
   name               = "eskimo-task"
   assume_role_policy = data.aws_iam_policy_document.task_assume.json
+
+  tags = var.tags
 }
 
 resource "aws_iam_role_policy_attachment" "task_exec" {
@@ -310,6 +336,8 @@ data "aws_iam_policy_document" "secret_access" {
 resource "aws_iam_policy" "secret_access" {
   name   = "eskimo-secret-access"
   policy = data.aws_iam_policy_document.secret_access.json
+
+  tags = var.tags
 }
 
 resource "aws_iam_role_policy_attachment" "secret_access" {
@@ -322,6 +350,8 @@ resource "aws_cloudwatch_log_group" "ecs" {
   name              = "/ecs/eskimo"
   retention_in_days = 365
   kms_key_id        = aws_kms_key.secrets.arn
+
+  tags = var.tags
 }
 
 locals {
@@ -405,6 +435,8 @@ resource "aws_ecs_task_definition" "scan" {
       ]
     }
   ])
+
+  tags = var.tags
 }
 
 # Security group for tasks
@@ -420,12 +452,16 @@ resource "aws_security_group" "ecs_tasks" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = var.tags
 }
 
 # CloudWatch Event rule to trigger weekly
 resource "aws_cloudwatch_event_rule" "weekly" {
   name                = "eskimo-weekly"
   schedule_expression = "cron(${var.scan_schedule_expression})"
+
+  tags = var.tags
 }
 
 # IAM role for EventBridge to run tasks
@@ -442,6 +478,8 @@ data "aws_iam_policy_document" "event_assume" {
 resource "aws_iam_role" "event" {
   name               = "ecs-scan-event"
   assume_role_policy = data.aws_iam_policy_document.event_assume.json
+
+  tags = var.tags
 }
 
 data "aws_iam_policy_document" "event" {
@@ -495,6 +533,8 @@ resource "aws_cloudwatch_event_rule" "manual" {
   event_pattern = jsonencode({
     source = ["eskimo.manual"]
   })
+
+  tags = var.tags
 }
 
 resource "aws_cloudwatch_event_target" "manual" {
