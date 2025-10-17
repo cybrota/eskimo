@@ -26,12 +26,16 @@ type scanLog struct {
 	err     error
 }
 
-const sampleLimit = 10
+const (
+	sampleLimit      = 10
+	defaultClonePath = "/tmp/github-repos"
+)
 
 var (
 	org        string
 	configPath string
 	sample     bool
+	clonePath  string
 )
 
 var rootCmd = &cobra.Command{
@@ -52,8 +56,13 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		baseDir := filepath.Join("/tmp", "github-repos")
-		os.MkdirAll(baseDir, 0755)
+		baseDir, err := filepath.Abs(clonePath)
+		if err != nil {
+			return fmt.Errorf("resolve clone path: %w", err)
+		}
+		if err := os.MkdirAll(baseDir, 0755); err != nil {
+			return fmt.Errorf("ensure clone path: %w", err)
+		}
 		totalRepos := len(repos)
 		fmt.Printf("found %d repositories\n", totalRepos)
 		if sample {
@@ -151,6 +160,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&org, "org", "", "GitHub organization")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "scanners.yaml", "Scanner config file")
 	rootCmd.PersistentFlags().BoolVar(&sample, "sample", false, fmt.Sprintf("run scans on at most %d repositories", sampleLimit))
+	rootCmd.PersistentFlags().StringVar(&clonePath, "clone-path", defaultClonePath, "directory used to store cloned repositories")
 	rootCmd.MarkPersistentFlagRequired("org")
 	rootCmd.AddCommand(authCmd)
 }
