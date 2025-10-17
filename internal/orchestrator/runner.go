@@ -54,6 +54,25 @@ func NewRunner(logger *slog.Logger, client *internalgithub.Client, cfg *config.C
 	}
 }
 
+func (r *Runner) runPreCommands(ctx context.Context, workDir string) error {
+	for _, sc := range r.cfg.Scanners {
+		if len(sc.PreCommand) == 0 {
+			continue
+		}
+		r.logger.Info("running pre-command", slog.String("scanner", sc.Name))
+		s := scanner.Scanner(sc)
+		out, err := s.RunPreCommand(ctx, workDir)
+		if err != nil {
+			r.logger.Error("pre-command failed", slog.String("scanner", sc.Name), slog.Any("error", err), slog.String("output", string(out)))
+			return fmt.Errorf("pre-command for %s failed: %w", sc.Name, err)
+		}
+		if len(out) > 0 {
+			r.logger.Info("pre-command output", slog.String("scanner", sc.Name), slog.String("output", string(out)))
+		}
+	}
+	return nil
+}
+
 func (r *Runner) Run(ctx context.Context) error {
 	repos, err := r.client.ListRepos(ctx)
 	if err != nil {
@@ -68,6 +87,10 @@ func (r *Runner) Run(ctx context.Context) error {
 		return err
 	}
 	r.logger.Info("using clone path", slog.String("path", baseDir))
+
+	if err := r.runPreCommands(ctx, baseDir); err != nil {
+		return err
+	}
 
 	totalRepos := len(repos)
 	r.logger.Info("repositories discovered", slog.Int("count", totalRepos))
@@ -160,6 +183,7 @@ func (r *Runner) Run(ctx context.Context) error {
 			var wg sync.WaitGroup
 			for _, sc := range r.cfg.Scanners {
 				scCopy := sc
+				scCopy.PreCommand = nil
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
