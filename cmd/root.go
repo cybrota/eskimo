@@ -3,7 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -39,6 +39,8 @@ var (
 	clonePath  string
 )
 
+var logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
+
 var rootCmd = &cobra.Command{
 	Use:   "eskimo",
 	Short: "Pluggable security scanner",
@@ -61,15 +63,16 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if err := ensureCloneBase(baseDir); err != nil {
+		baseDir, err = ensureCloneBase(baseDir)
+		if err != nil {
 			return err
 		}
-		fmt.Printf("using clone path %s\n", baseDir)
+		logger.Info("using clone path", slog.String("path", baseDir))
 		totalRepos := len(repos)
-		fmt.Printf("found %d repositories\n", totalRepos)
+		logger.Info("repositories discovered", slog.Int("count", totalRepos))
 		if sample {
 			if totalRepos == 0 {
-				fmt.Println("no repositories available to sample")
+				logger.Info("no repositories available to sample", slog.Int("count", totalRepos))
 				return nil
 			}
 			limit := sampleLimit
@@ -77,7 +80,7 @@ var rootCmd = &cobra.Command{
 				limit = totalRepos
 			}
 			repos = repos[:limit]
-			fmt.Printf("sampling %d repositories (--sample flag)\n", len(repos))
+			logger.Info("sampling repositories", slog.Int("count", len(repos)), slog.Int("limit", sampleLimit))
 		}
 
 		// For I/O-bound workloads, use higher parallelism than CPU count
@@ -94,18 +97,21 @@ var rootCmd = &cobra.Command{
 			sem <- struct{}{}
 			go func(r *github.Repository) {
 				defer cloneWG.Done()
-				fmt.Printf("cloning %s...\n", r.GetName())
+				logger.Info("preparing repository", slog.String("repo", r.GetName()))
 				repoPath := filepath.Join(baseDir, r.GetName())
-				if err := removeExistingRepo(repoPath); err != nil {
-					log.Printf("failed to prepare %s: %v", repoPath, err)
+				removed, err := removeExistingRepo(repoPath)
+				if err != nil {
+					logger.Error("failed to prepare repository directory", slog.String("repo", r.GetName()), slog.String("path", repoPath), slog.Any("error", err))
 					<-sem
 					return
-				} else {
-					log.Printf("Cleaned a similar named repository: %s", *r.Name)
 				}
-				repoPath, err := gh.CloneRepo(r, baseDir)
+				if removed {
+					logger.Info("removed existing repository directory", slog.String("repo", r.GetName()), slog.String("path", repoPath))
+				}
+				logger.Info("cloning repository", slog.String("repo", r.GetName()), slog.String("path", repoPath))
+				repoPath, err = gh.CloneRepo(r, baseDir)
 				if err != nil {
-					log.Printf("failed to clone %s: %v", r.GetName(), err)
+					logger.Error("failed to clone repository", slog.String("repo", r.GetName()), slog.Any("error", err))
 					<-sem
 					return
 				}
@@ -124,9 +130,19 @@ var rootCmd = &cobra.Command{
 			for l := range logCh {
 				prefix := fmt.Sprintf("%s: %s", l.repo, l.scanner)
 				if l.err != nil {
-					fmt.Printf("%s failed: %v\n%s\n", prefix, l.err, l.output)
+					if l.output != "" {
+						fmt.Fprintf(os.Stderr, "%s failed: %v\n%s", prefix, l.err, l.output)
+						if !strings.HasSuffix(l.output, "\n") {
+							fmt.Fprintln(os.Stderr)
+						}
+					} else {
+						fmt.Fprintf(os.Stderr, "%s failed: %v\n", prefix, l.err)
+					}
 				} else if l.output != "" {
-					fmt.Printf("%s output:\n%s\n", prefix, l.output)
+					fmt.Printf("%s output:\n%s", prefix, l.output)
+					if !strings.HasSuffix(l.output, "\n") {
+						fmt.Println()
+					}
 				}
 			}
 		}()
@@ -145,7 +161,7 @@ var rootCmd = &cobra.Command{
 					go func() {
 						defer wg.Done()
 						s := scanner.Scanner(scCopy)
-						fmt.Printf("%s: running %s...\n", in.name, scCopy.Name)
+						logger.Info("running scanner", slog.String("repo", in.name), slog.String("scanner", scCopy.Name))
 						out, err := s.Run(ctx, in.path)
 						logCh <- scanLog{repo: in.name, scanner: scCopy.Name, output: string(out), err: err}
 					}()
@@ -206,43 +222,63 @@ func isRootPath(path string) bool {
 	return filepath.Dir(clean) == clean
 }
 
-func ensureCloneBase(baseDir string) error {
-	if _, err := os.Lstat(baseDir); err != nil {
-		if os.IsNotExist(err) {
-			return os.MkdirAll(baseDir, 0755)
-		}
-		return fmt.Errorf("stat clone path: %w", err)
-	}
-	resolved, err := filepath.EvalSymlinks(baseDir)
+func ensureCloneBase(baseDir string) (string, error) {
+	info, err := os.Lstat(baseDir)
 	if err != nil {
-		return fmt.Errorf("resolve clone path symlink: %w", err)
+		if os.IsNotExist(err) {
+			if err := os.MkdirAll(baseDir, 0755); err != nil {
+				return "", fmt.Errorf("create clone path: %w", err)
+			}
+			return baseDir, nil
+		}
+		return "", fmt.Errorf("stat clone path: %w", err)
 	}
-	if isRootPath(resolved) {
-		return fmt.Errorf("clone path resolves to filesystem root (%s) which is not allowed", resolved)
+	if info.Mode()&os.ModeSymlink != 0 {
+		resolved, err := filepath.EvalSymlinks(baseDir)
+		if err != nil {
+			return "", fmt.Errorf("resolve clone path symlink: %w", err)
+		}
+		if isRootPath(resolved) {
+			return "", fmt.Errorf("clone path resolves to filesystem root (%s) which is not allowed", resolved)
+		}
+		baseDir = resolved
+		info, err = os.Stat(baseDir)
+		if err != nil {
+			return "", fmt.Errorf("stat resolved clone path: %w", err)
+		}
 	}
-	return nil
+	if !info.IsDir() {
+		return "", fmt.Errorf("clone path %s is not a directory", baseDir)
+	}
+	if isRootPath(baseDir) {
+		return "", fmt.Errorf("clone path resolves to filesystem root (%s) which is not allowed", baseDir)
+	}
+	return baseDir, nil
 }
 
-func removeExistingRepo(repoPath string) error {
+func removeExistingRepo(repoPath string) (bool, error) {
 	info, err := os.Lstat(repoPath)
 	if os.IsNotExist(err) {
-		return nil
+		return false, nil
 	}
 	if err != nil {
-		return fmt.Errorf("stat repo path: %w", err)
+		return false, fmt.Errorf("stat repo path: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return false, fmt.Errorf("repository path %s is a symlink, refusing to remove", repoPath)
 	}
 	resolved, err := filepath.EvalSymlinks(repoPath)
 	if err != nil {
-		return fmt.Errorf("resolve repo path: %w", err)
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("resolve repo path: %w", err)
 	}
 	if isRootPath(resolved) {
-		return fmt.Errorf("refusing to remove repository path that resolves to root (%s)", resolved)
+		return false, fmt.Errorf("refusing to remove repository path that resolves to root (%s)", resolved)
 	}
 	if err := os.RemoveAll(repoPath); err != nil {
-		return fmt.Errorf("remove existing repo %s: %w", repoPath, err)
+		return false, fmt.Errorf("remove existing repo %s: %w", repoPath, err)
 	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		return fmt.Errorf("repository path %s is a symlink, refusing to remove", repoPath)
-	}
-	return nil
+	return true, nil
 }
