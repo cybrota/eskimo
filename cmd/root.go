@@ -26,9 +26,12 @@ type scanLog struct {
 	err     error
 }
 
+const sampleLimit = 10
+
 var (
 	org        string
 	configPath string
+	sample     bool
 )
 
 var rootCmd = &cobra.Command{
@@ -51,7 +54,20 @@ var rootCmd = &cobra.Command{
 		}
 		baseDir := filepath.Join("/tmp", "github-repos")
 		os.MkdirAll(baseDir, 0755)
-		fmt.Printf("found %d repositories\n", len(repos))
+		totalRepos := len(repos)
+		fmt.Printf("found %d repositories\n", totalRepos)
+		if sample {
+			if totalRepos == 0 {
+				fmt.Println("no repositories available to sample")
+				return nil
+			}
+			limit := sampleLimit
+			if totalRepos < sampleLimit {
+				limit = totalRepos
+			}
+			repos = repos[:limit]
+			fmt.Printf("sampling %d repositories (--sample flag)\n", len(repos))
+		}
 
 		// For I/O-bound workloads, use higher parallelism than CPU count
 		parallel := runtime.NumCPU() * 4
@@ -134,6 +150,7 @@ func Execute() error {
 func init() {
 	rootCmd.PersistentFlags().StringVar(&org, "org", "", "GitHub organization")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "scanners.yaml", "Scanner config file")
+	rootCmd.PersistentFlags().BoolVar(&sample, "sample", false, fmt.Sprintf("run scans on at most %d repositories", sampleLimit))
 	rootCmd.MarkPersistentFlagRequired("org")
 	rootCmd.AddCommand(authCmd)
 }
