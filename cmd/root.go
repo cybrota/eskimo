@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 
 	github "github.com/google/go-github/v55/github"
@@ -56,13 +57,14 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		baseDir, err := filepath.Abs(clonePath)
+		baseDir, err := sanitizeClonePath(clonePath)
 		if err != nil {
-			return fmt.Errorf("resolve clone path: %w", err)
+			return err
 		}
-		if err := os.MkdirAll(baseDir, 0755); err != nil {
-			return fmt.Errorf("ensure clone path: %w", err)
+		if err := ensureCloneBase(baseDir); err != nil {
+			return err
 		}
+		fmt.Printf("using clone path %s\n", baseDir)
 		totalRepos := len(repos)
 		fmt.Printf("found %d repositories\n", totalRepos)
 		if sample {
@@ -93,6 +95,14 @@ var rootCmd = &cobra.Command{
 			go func(r *github.Repository) {
 				defer cloneWG.Done()
 				fmt.Printf("cloning %s...\n", r.GetName())
+				repoPath := filepath.Join(baseDir, r.GetName())
+				if err := removeExistingRepo(repoPath); err != nil {
+					log.Printf("failed to prepare %s: %v", repoPath, err)
+					<-sem
+					return
+				} else {
+					log.Printf("Cleaned a similar named repository: %s", *r.Name)
+				}
 				repoPath, err := gh.CloneRepo(r, baseDir)
 				if err != nil {
 					log.Printf("failed to clone %s: %v", r.GetName(), err)
@@ -163,4 +173,76 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&clonePath, "clone-path", defaultClonePath, "directory used to store cloned repositories")
 	rootCmd.MarkPersistentFlagRequired("org")
 	rootCmd.AddCommand(authCmd)
+}
+
+func sanitizeClonePath(raw string) (string, error) {
+	if raw == "" {
+		return "", fmt.Errorf("clone path cannot be empty")
+	}
+	abs, err := filepath.Abs(raw)
+	if err != nil {
+		return "", fmt.Errorf("resolve clone path: %w", err)
+	}
+	clean := filepath.Clean(abs)
+	if clean == "." || isRootPath(clean) {
+		return "", fmt.Errorf("clone path %q is not allowed", clean)
+	}
+	return clean, nil
+}
+
+func isRootPath(path string) bool {
+	clean := filepath.Clean(path)
+	if clean == "." || clean == string(filepath.Separator) {
+		return true
+	}
+	if runtime.GOOS == "windows" {
+		vol := filepath.VolumeName(clean)
+		if vol != "" {
+			rest := strings.TrimPrefix(clean, vol)
+			rest = strings.TrimPrefix(rest, string(filepath.Separator))
+			return rest == ""
+		}
+	}
+	return filepath.Dir(clean) == clean
+}
+
+func ensureCloneBase(baseDir string) error {
+	if _, err := os.Lstat(baseDir); err != nil {
+		if os.IsNotExist(err) {
+			return os.MkdirAll(baseDir, 0755)
+		}
+		return fmt.Errorf("stat clone path: %w", err)
+	}
+	resolved, err := filepath.EvalSymlinks(baseDir)
+	if err != nil {
+		return fmt.Errorf("resolve clone path symlink: %w", err)
+	}
+	if isRootPath(resolved) {
+		return fmt.Errorf("clone path resolves to filesystem root (%s) which is not allowed", resolved)
+	}
+	return nil
+}
+
+func removeExistingRepo(repoPath string) error {
+	info, err := os.Lstat(repoPath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("stat repo path: %w", err)
+	}
+	resolved, err := filepath.EvalSymlinks(repoPath)
+	if err != nil {
+		return fmt.Errorf("resolve repo path: %w", err)
+	}
+	if isRootPath(resolved) {
+		return fmt.Errorf("refusing to remove repository path that resolves to root (%s)", resolved)
+	}
+	if err := os.RemoveAll(repoPath); err != nil {
+		return fmt.Errorf("remove existing repo %s: %w", repoPath, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("repository path %s is a symlink, refusing to remove", repoPath)
+	}
+	return nil
 }
